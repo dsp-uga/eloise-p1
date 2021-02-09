@@ -6,9 +6,8 @@ Created on Thu Jan 28 14:37:57 2021
 @author: kadir
 """
 from pyspark import SparkContext, SparkConf
-# import json, sys, os, math
+import json, sys, os, math
 from google.cloud import storage
-import os
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/kadir/Documents/Spyder/DSP_Spring21/google_cloud_key.json'
 # If you don't specify credentials when constructing the client, the
@@ -87,43 +86,50 @@ class1_docs = sc.textFile(filter_file_names(1))
 # class3 = sc.textFile("/home/kadir/Documents/Spyder/DSP_Spring21/project1/testing/5QpgRV2cqU9wvjBist1a.bytes")
 # class3.count()
 
+################ TRAINING ######################
+################################################
+
+### processing documents
+# calculate prior probabilities P(y_k)
+def prior_prob(doc_label_pair, doc_class_no):
+    p_prob = doc_label_pair.filter(lambda x: x[0] == str(doc_class_no)).map(lambda x: x[1]).count()/doc_label_pair.count()
+    return p_prob
+
+prior_prob(doc_labels, 1) 
+
 # all training documents RDD
 all_train = sc.textFile("/home/kadir/Documents/Spyder/DSP_Spring21/project1/small_train/")
 
 # all test documents RDD
 all_test = sc.textFile("/home/kadir/Documents/Spyder/DSP_Spring21/project1/small_test/")
 
-### processing documents
-# calculate prior probabilities P(y_k)
-def prior_prob(doc_label_pair, doc_class_no):
-    p_prob = doc_label_pair.filter(lambda x: x[0] == str(doc_class_no)).map(lambda x: x[1]).count()/doc_labels.count()
-    return p_prob
-
-prior_prob(doc_labels, 1) 
-
-# vocabulary to add individual class words (training set for now and we should also add for test set)
-voc_train = all_train.map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()).distinct().map(lambda x: (x, 0))
-voc_train.take(5)
-voc_test = all_test.map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()).distinct().map(lambda x: (x, 0))
-voc_test.take(5)
-
-# sc.parallelize([("a", 1), ("b", 1), ("a", 1)]).union(sc.parallelize([("c", 0), ("d", 0), ("c", 0)])).reduceByKey(lambda x, y: x + y).collect()
-
+# comprehensive vocabulary to avoid zero probability issue by introducing words that does not appear in certain classes (from training and test data)
+def vocabulary_of_zeros(comprehensive_training_data, comprehensive_test_data):
+    voc_train = comprehensive_training_data.map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()).distinct().map(lambda x: (x, 0))
+    voc_test = comprehensive_test_data.map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()).distinct().map(lambda x: (x, 0))
+    return voc_train.union(voc_test)
+    
 # calculate term frequencies including zeros for words that appear in documents but not in every class
 def term_freq(document_set, vocabulary):
     processed = document_set.map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()).map(lambda x: (x, 1)).union(vocabulary).reduceByKey(lambda x, y: x + y)
     return processed
 
-term_freq(class1_docs, voc_train).sortBy(lambda x: -x[1]).take(10)
-# voc = term_freq(all_class)
+# term_freq(class1_docs, vocabulary_of_zeros(all_train, all_test)).sortBy(lambda x: x[1]).take(10)
 
-# calculate cond probabilities P(x_i, y_k)
-def cond_prob(class_filtered, unfiltered):
-    probs = term_freq(class_filtered).join(term_freq(unfiltered)).map(lambda x: (x[0], x[1][0]/x[1][1]))
+comp_vocabulary = vocabulary_of_zeros(all_train, all_test)
+
+# calculate cond probabilities P(x_i, y_k) including laplace smoothing and log transformation
+def cond_prob(class_filtered, unfiltered_train):
+    probs = term_freq(class_filtered, comp_vocabulary).join(term_freq(unfiltered_train, comp_vocabulary)).map(lambda x: (x[0], math.log10( (x[1][0] + 1)/x[1][1] )))
     return probs
 
-cond_prob(class1_docs,all_train).sortBy(lambda x: -x[1]).take(5)
-cond_prob(class1_docs,all_train).sortBy(lambda x: x[0]).take(5)
+# loop to get probability information for all classes
 
-# vocab = test_files.map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()).map(lambda x: (x, 1)).reduceByKey(lambda x, y: x + y)
-# sc.broadcast(vocab.collectAsMap()).value[:5]
+cond_probs_1 = cond_prob(class1_docs,all_train).sortBy(lambda x: -x[1])
+cond_probs_1.take(5)
+
+
+
+################ PREDICTION ######################
+##################################################
+
