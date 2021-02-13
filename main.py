@@ -1,6 +1,7 @@
 import pyspark
 from pyspark.sql import SparkSession
 import numpy as np
+from operator import add
 
 # init spark
 spark = SparkSession.builder.appName("P1_team").getOrCreate()       
