@@ -6,56 +6,37 @@ Created on Thu Jan 28 14:37:57 2021
 @author: kadir
 """
 from pyspark import SparkContext, SparkConf
-import os, math
-from google.cloud import storage
-# import numpy as np
+import os, math, sys
+# from google.cloud import storage
 
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/kadir/Documents/Spyder/DSP_Spring21/google_cloud_key.json'
+# GC credentials, I do not know if this is necessary when using from GC command line
+# os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/kadir/Documents/Spyder/DSP_Spring21/google_cloud_key.json'
+
 # If you don't specify credentials when constructing the client, the
 # client library will look for credentials in the environment.
-client = storage.Client()
+# client = storage.Client()
+
 # Initialize Spark context
 conf = SparkConf().setMaster("local[*]")
 sc = SparkContext(conf = conf)
 
-# # trying to get the files 
-# # THIS SHOULD BE DONE BY PYSPARK TALKING DIRECTLY TO GOOGLE CLOUD BUT FOR NOW THIS IS TO TEST GOOGLE STORAGE
-# hash_files = []
-# data_files = []
-# def get_gc_files():
-#     # bucket = client.get_bucket('uga-dsp') # gives access error if you try to reach to bucket but next one works
-#     for blob in client.list_blobs('uga-dsp', prefix='project1/files'):
-#         hash_files.append(blob)
-#         # print(str(blob))
-#     for blob in client.list_blobs('uga-dsp', prefix='project1/data/bytes'):
-#         data_files.append(blob)
-    
-# get_gc_files()
-
-# # get X_small_train.txt
-# # parallelized = sc.parallelize(hash_files[1].download_as_string().decode('utf-8').split())
-# # 'project1/data/bytes/' + parallelized.first() + '.bytes'
-# hash_files
-# # x small train
-# x_small_train = hash_files[1].download_as_string().decode('utf-8').split()
-# # y small train
-# y_small_train = hash_files[5].download_as_string().decode('utf-8').split()
-
-
-# 'project1/data/bytes/' + x_small_train + '.bytes'
-# data_files[1].download_as_string().decode('utf-8').split()[:50]
-
-# hash_files[1].download_as_string().decode('utf-8').split()[1]
-
-# [blob.name for blob in data_files if ('project1/data/bytes/' + x_small_train[1] + '.bytes') in blob.name]
-
+# Change working directory to scripts directory
+abspath = os.path.abspath(__file__)
+dname = os.path.dirname(abspath)
+os.chdir(dname)
 
 ################### PRACTICE ROUTINE ###############
 ####################################################
-input_data_path = "/home/kadir/Documents/Spyder/DSP_Spring21/project1/small_train/"
-input_xtrain_file = '/home/kadir/Documents/Spyder/DSP_Spring21/project1/X_small_train.txt'
-input_ytrain_file = '/home/kadir/Documents/Spyder/DSP_Spring21/project1/y_small_train.txt'
-input_xtest_file = '/home/kadir/Documents/Spyder/DSP_Spring21/project1/X_small_test.txt'
+# Trying to connect GC using commandline but we can do that with Clint's approach as well
+input_data_path = sys.argv[1] #"/home/kadir/Documents/Spyder/DSP_Spring21/project1/data/" #sys.argv[1]
+input_xtrain_file = sys.argv[2] #'/home/kadir/Documents/Spyder/DSP_Spring21/project1/X_small_train.txt' #sys.argv[2]
+input_ytrain_file = sys.argv[3] #'/home/kadir/Documents/Spyder/DSP_Spring21/project1/y_small_train.txt' #sys.argv[3]
+input_xtest_file = sys.argv[4] #'/home/kadir/Documents/Spyder/DSP_Spring21/project1/X_small_test.txt' #sys.argv[4]
+if len(sys.argv) == 6:
+    input_ytest_file = sys.argv[5] #'/home/kadir/Documents/Spyder/DSP_Spring21/project1/y_small_test.txt' #sys.argv[5]
+else:
+    input_ytest_file = ''
+    
 
 # Gather document names (x) and related classes (y) (LOCAL NOW FOR PRACTICE) 
 # May need to broadcast this
@@ -69,20 +50,22 @@ def join_x_and_y(x_train_file, y_train_file):
 doc_labels = join_x_and_y(input_xtrain_file, input_ytrain_file )#.filter(lambda x: x[0] == str(1)).collect()
 
 # filter x based on y (might be better with RDDs)
-small_train_dir = "/home/kadir/Documents/Spyder/DSP_Spring21/project1/small_train/"
+# small_train_dir = "/home/kadir/Documents/Spyder/DSP_Spring21/project1/small_train/"
 def filter_file_names(class_index):
     y_filtered_x = doc_labels.filter(lambda x: x[0] in class_index).map(lambda x: x[1]).collect()
     return y_filtered_x
 
+# get subset of data files by collecting addresses of each (there should be a smarter way)
 def get_file_addresses(y_filtered_x):
     addresses = ""
     for i in range(len(y_filtered_x)):    
-           addresses = addresses + small_train_dir + y_filtered_x[i] +'.bytes,'
+           addresses = addresses + input_data_path + y_filtered_x[i] +'.bytes,'
     addresses = addresses[:-1]
     return addresses 
 
 # len(filter_file_names(['1']))
-doc_labels.filter(lambda x: x[0] in '1').map(lambda x: x[1]).collect()
+# doc_labels.filter(lambda x: x[0] in '1').map(lambda x: x[1]).collect()
+
 ################ TRAINING ######################
 ################################################
 
@@ -93,12 +76,10 @@ def prior_prob(doc_label_pair, doc_class_no):
     return math.log10(p_prob)
 
 # all training documents RDD
-# all_train = sc.textFile("/home/kadir/Documents/Spyder/DSP_Spring21/project1/small_train/")
-all_train = sc.textFile(get_file_addresses(filter_file_names([str(n) for n in range(1,10)])))
-# all_train.count()
+all_train = sc.textFile(get_file_addresses(sc.textFile(input_xtrain_file).collect()))
 
 # all test documents RDD
-all_test = sc.textFile("/home/kadir/Documents/Spyder/DSP_Spring21/project1/small_test/")
+all_test = sc.textFile(get_file_addresses(sc.textFile(input_xtest_file).collect()))
 
 # comprehensive vocabulary to avoid zero probability issue by introducing words that does not appear in certain classes (from training and test data)
 def vocabulary_of_zeros(comprehensive_training_data, comprehensive_test_data):
@@ -132,52 +113,56 @@ def cond_prob(class_filtered, unfiltered_train):
     probs = tf_class.map(lambda x: (x[0], math.log10( (x[1] + 1)/(total_words_in_class + no_unique_words) )))
     return probs
 
-# loop to get probability information for all classes and pass to prediction (and potentially broadcast)
+# loop to get probability information for all classes and pass to prediction
 # get prior and conditional
 prior_prob_list = []
 cond_prob_list = []
 for i in range(1,10):
     prior_prob_list.append(prior_prob(doc_labels, i))
     cond_prob_list.append(sc.broadcast(cond_prob(sc.textFile(get_file_addresses( filter_file_names(str(i)) )),all_train).collectAsMap()).value)
-    # print(cond_prob_list[i-1].take(5))
 
 ################ PREDICTION ######################
 ##################################################
 
 # get documents to be classified
-x_test_list = sc.broadcast(sc.textFile('/home/kadir/Documents/Spyder/DSP_Spring21/project1/X_small_test.txt').collect()).value
-y_test_list = sc.broadcast(sc.textFile('/home/kadir/Documents/Spyder/DSP_Spring21/project1/y_small_test.txt').collect()).value
+x_test_list = sc.broadcast(sc.textFile(input_xtest_file).collect()).value
+# get labels of each document for comparison (not needed for later)
 
 # predict classes (I attached labels(y) to the RDD as well for test purposes but we do not need it for later)
 def predict_classes(list_of_files):
     doc_classification = sc.parallelize([])
-    for doc_i in range(10):
-        # class_scores = np.zeros((9,2))
+    for doc_i in range(len(list_of_files)):
         class_scores = []
         for class_i in range (1,10):
             filename = list_of_files[doc_i]
-            document1 = sc.textFile(("/home/kadir/Documents/Spyder/DSP_Spring21/project1/small_test/" + filename + ".bytes")).map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()).map(lambda x: (x, cond_prob_list[class_i-1][x]))
-            class_scores.append([filename, class_i ,document1.values().sum() + prior_prob_list[class_i-1], y_test_list[doc_i]])
-            # class_scores[class_i-1,:] = [class_i ,document1.values().sum() + prior_prob_list[class_i-1]]
+            document1 = sc.textFile((input_data_path + filename + ".bytes")).map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()).map(lambda x: (x, cond_prob_list[class_i-1][x]))
+            class_scores.append([filename, class_i ,document1.values().sum() + prior_prob_list[class_i-1]])
         doc_classification = doc_classification.union(sc.parallelize([k for k in class_scores if k[2] == max(l[2] for l in class_scores)]))
     return doc_classification
 
 doc_classification = predict_classes(x_test_list)
 
-# doc_classification.take(10)
+yler = sc.textFile('/home/kadir/Documents/Spyder/DSP_Spring21/project1/y_small_test.txt').zipWithIndex().map(lambda x: (x[1], x[0]))
+doc_classification.zipWithIndex().map(lambda x: (x[1], x[0])).join(yler).map(lambda x: x[1][0][1] == int(x[1][1])).sum()
+doc_classification.join(sc.textFile('/home/kadir/Documents/Spyder/DSP_Spring21/project1/y_small_test.txt').zipWithIndex()).take(10)
 
+# doc_classification.take(10)
 # save as txt
 with open('classification.txt', 'w') as txt_file:
   txt_file.writelines("%s\n" % p for p in doc_classification.map(lambda x: x[1]).collect())
-  
+print('output has been written to txt file')
+
 ################ ACCURACY CHECK###################
 ##################################################
-def accuracy_check(classifications):    
-    print('Accuracy of the classification: ' + str(format(100*classifications.map(lambda x: x[1] == int(x[3])).sum()/classifications.count(), '.2f')) + '%')
-    
-accuracy_check(doc_classification)
+def accuracy_check(classifications, ytest_file):  
+    y_test_list = sc.textFile(ytest_file).zipWithIndex().map(lambda x: (x[1], x[0]))
+    compare_classes = classifications.zipWithIndex().map(lambda x: (x[1], x[0])).join(y_test_list)
+    print('Accuracy of the classification: ' + str(format(100*compare_classes.map(lambda x: x[1][0][1] == int(x[1][1])).sum()/classifications.count(), '.2f')) + '%')
 
-
+if(len(input_ytest_file) > 0):
+    accuracy_check(doc_classification,input_ytest_file)
+else:
+    print('no y data given so accuracy is not calculated')
 
 
 
