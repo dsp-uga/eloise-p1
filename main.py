@@ -58,6 +58,7 @@ def P_xi_given_yk(word,count,):
         count = float(count)*-1
     return word,count
 
+
 # returns P(xi/yk) for each class
 for k, v in files_rdds.items():
     files_rdds[k] = files_rdds[k].map(lambda x: P_xi_given_yk(x[0],x[1]))
