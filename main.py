@@ -2,6 +2,7 @@ import pyspark
 from pyspark.sql import SparkSession
 import numpy as np
 from operator import add
+from __future__ import division
 
 """
 Current method!!!!!!!!!!
@@ -106,15 +107,23 @@ mapper_test = map_datasets2labels('X_small_test.txt', 'y_small_test.txt')
 # --- step 2 --- #
 files_rdds_test, class_count_test, _VOID = generate_count_rdds(mapper_test, trainset=False)
 
-def score_calc(word,count,converter):
-    count = float(word2prob[word])*count
+def score_calc(word,count):
+    count = float(word2prob[word])*float(count)
     return word, count
                            
 for rdd_key in files_rdds_test.keys():
     scores = {}
+    total_labels = 0
+    for label, numclass in class_count.items():
+        total_labels += numclass
     for k, v in class_count.items():
+        print(v)
+        print(total_labels)
         word2prob = train_prob[k].collectAsMap()
         # issues HERE cannont .reduceByKey(multiply) we need another way to do that
-        scores[k] = files_rdds_test[rdd_key].map(lambda x: score_calc(x[0],x[1]))
-        break
-    break
+        scores[k] = files_rdds_test[rdd_key].map(lambda x: score_calc(x[0],x[1])).map(lambda x: float(x[1])).reduce(lambda x, y: x*y)
+        p_yk = float(v/total_labels)
+        scores[k] = scores[k]*p_yk
+    
+    
+
