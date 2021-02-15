@@ -107,10 +107,12 @@ mapper_test = map_datasets2labels('X_small_test.txt', 'y_small_test.txt')
 # --- step 2 --- #
 files_rdds_test, class_count_test, _VOID = generate_count_rdds(mapper_test, trainset=False)
 
+import math
 def score_calc(word,count):
-    count = float(word2prob[word])*float(count)
+    count = math.log10(float(word2prob[word]))*float(count)
     return word, count
-                           
+  
+predictions = {}
 for rdd_key in files_rdds_test.keys():
     scores = {}
     total_labels = 0
@@ -121,9 +123,16 @@ for rdd_key in files_rdds_test.keys():
         print(total_labels)
         word2prob = train_prob[k].collectAsMap()
         # issues HERE cannont .reduceByKey(multiply) we need another way to do that
-        scores[k] = files_rdds_test[rdd_key].map(lambda x: score_calc(x[0],x[1])).map(lambda x: float(x[1])).reduce(lambda x, y: x*y)
+        scores[k] = files_rdds_test[rdd_key].map(lambda x: score_calc(x[0],x[1])).map(lambda x: float(x[1])).reduce(lambda x, y: x +y)
         p_yk = float(v/total_labels)
         scores[k] = scores[k]*p_yk
+    max_score = -100000000
+    best_class = None
+    for label, score in scores.items():
+        if score > max_score:
+            max_score = score
+            best_class = label
+    predictions[rdd_key] = best_class
     
     
 
