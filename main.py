@@ -3,6 +3,7 @@ from pyspark.sql import SparkSession
 import numpy as np
 from operator import add
 from __future__ import division
+import math
 
 """
 Current method!!!!!!!!!!
@@ -72,13 +73,8 @@ def total_train_info(files_rdds):
 
 
 # --- step 4 --- #
-# P(xi/yk)
-# oo = [(number of oo in A+B) + 1 ] / [(number of all words in A+B) + no of unique words in A+B+C+D+E]
 def P_xi_given_yk(word,count):
-    if word in total_count_map.keys():
-        count = (float(count)+float(1))/(float(current_word_perClass)+float(total_count))
-    else:
-        count = (float(1))/(float(current_word_perClass)+float(total_count))
+    count = (float(count)+(1/float(total_count)))/(float(current_word_perClass))
     return word, count
 
 
@@ -92,7 +88,12 @@ total_count, total_count_map = total_train_info(files_rdds)
 train_prob = {}                           
 for k in files_rdds.keys():
     current_word_perClass = word_perClass[k]
-    train_prob[k] = files_rdds[k].map(lambda x: P_xi_given_yk(x[0],x[1]))
+    print(current_word_perClass)
+    probs = {}
+    for word, count in files_rdds[k].collectAsMap().items():
+        word, prob = P_xi_given_yk(word,count)
+        probs[word] = prob
+    train_prob[k] = probs
 
     
     
@@ -107,31 +108,31 @@ mapper_test = map_datasets2labels('X_small_test.txt', 'y_small_test.txt')
 # --- step 2 --- #
 files_rdds_test, class_count_test, _VOID = generate_count_rdds(mapper_test, trainset=False)
 
-import math
-def score_calc(word,count):
-    count = math.log10(float(word2prob[word]))*float(count)
-    return word, count
+def score_calc(word):
+    prob = float(math.log10(float(word2prob[word])))
+    return prob
   
 predictions = {}
 for rdd_key in files_rdds_test.keys():
+    print(rdd_key)
     scores = {}
     total_labels = 0
     for label, numclass in class_count.items():
         total_labels += numclass
     for k, v in class_count.items():
-        print(v)
-        print(total_labels)
-        word2prob = train_prob[k].collectAsMap()
+        word2prob = train_prob[k]
         # issues HERE cannont .reduceByKey(multiply) we need another way to do that
-        scores[k] = files_rdds_test[rdd_key].map(lambda x: score_calc(x[0],x[1])).map(lambda x: float(x[1])).reduce(lambda x, y: x +y)
-        p_yk = float(v/total_labels)
-        scores[k] = scores[k]*p_yk
+        scores[k] = files_rdds_test[rdd_key].map(lambda x: score_calc(x)).reduce(lambda x, y: x +y)
+        p_yk = math.log10(float(v/total_labels))
+        scores[k] = scores[k] + p_yk
     max_score = -100000000
     best_class = None
+    print(scores)
     for label, score in scores.items():
         if score > max_score:
             max_score = score
             best_class = label
+    print(best_class)
     predictions[rdd_key] = best_class
     
     
