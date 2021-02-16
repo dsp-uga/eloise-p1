@@ -3,7 +3,8 @@ from pyspark.sql import SparkSession
 import numpy as np
 from pyspark.mllib.feature import HashingTF, IDF
 from pyspark.mllib.regression import LabeledPoint
-from pyspark.mllib.classification import NaiveBayes
+from pyspark.mllib.tree import RandomForest
+
 
 # init spark
 spark = SparkSession.builder.appName("P1_team").getOrCreate()       
@@ -36,6 +37,7 @@ list_of_all_test_paths = test_bytes.collect()
 
 # gather all byte files under one RDD; get rid on name values, only keep text; clean out byte text for just hexadecimals
 all_text = sc.wholeTextFiles(','.join(list_of_all_paths)).map(lambda x: x[1]).map(lambda x: x.split()).map(lambda x: clean(x)).map(lambda x: x[0])
+
 # gather all test bytes under one RDD
 all_test_text = sc.wholeTextFiles(','.join(list_of_all_test_paths)).map(lambda x: x[1]).map(lambda x: x.split()).map(lambda x: clean(x)).map(lambda x: x[0])
 
@@ -62,7 +64,7 @@ temp_labeled_points = raw_label_and_values.map(lambda x: (x[0],LabeledPoint(x[0]
 labeled_points = temp_labeled_points.values()
 
 # Train and check
-model = NaiveBayes.train(labeled_points)
+model = RandomForest.trainClassifier(labeled_points, numClasses=len(test_labels), categoricalFeaturesInfo={}, numTrees=3, maxDepth=4, maxBins=32)
 correct = 0
 total = 0
 for i,label in enumerate(test_labels):
