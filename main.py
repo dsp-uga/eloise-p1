@@ -47,13 +47,17 @@ def generate_count_rdds(mapper, trainset=True):
             class_count[v] += 1            
             files_rdds[v]= rdd_fix(sc.textFile(k)).union(files_rdds[v])
         else:
-            class_count[v] = 1
-            files_rdds[v]= rdd_fix(sc.textFile(k))
+            if trainset:
+                class_count[v] = 1
+                files_rdds[v]= rdd_fix(sc.textFile(k))
+            else:
+                class_count[v] = 1
+                files_rdds[str(k)+' '+str(v)]= rdd_fix(sc.textFile(k))
             
     for k, v in files_rdds.items():
         if trainset:
             word_perClass[k] = files_rdds[k].count()
-        files_rdds[k] = files_rdds[k].map(lambda x: (x, 1)).reduceByKey(add) 
+            files_rdds[k] = files_rdds[k].map(lambda x: (x, 1)).reduceByKey(add) 
             
     return files_rdds, class_count, word_perClass
 
