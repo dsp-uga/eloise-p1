@@ -47,7 +47,9 @@ else:
     
 
 # Initialize Spark context
-conf = SparkConf().setMaster("local[*]")
+# conf = SparkConf().setMaster("local[*]")
+# sc = SparkContext(conf = conf)
+conf = SparkConf().setAppName('ilkproje')
 sc = SparkContext(conf = conf)
 print('Setting up spark context...')
 
@@ -242,7 +244,7 @@ else:
 #   txt_file.writelines("%s\n" % p for p in doc_classification.map(lambda x: x[1]).collect())
 # print('output has been written to txt file')
 
-doc_classification.map(lambda x: x[1]).coalesce(1).saveAsTextFile(input_output_dir + 'output_large/')
+doc_classification.map(lambda x: x[1]).saveAsTextFile(input_output_dir + 'output_large/')
 
 
 
