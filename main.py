@@ -14,6 +14,18 @@ spark = SparkSession.builder.appName("P1_team").getOrCreate()
 sc=spark.sparkContext
 
 
+
+def val_predict(predictions):
+    correct_predict_count, all_predict_count = 0, 0
+    for pred_y, y_true in predictions.items():
+        pred_y = pred_y.split()[1]
+        if pred_y == y_true:
+            correct_predict_count += 1
+        all_predict_count += 1
+    return correct_predict_count/all_predict_count
+
+
+
 # --- step 1 --- #
 # get dict key: byte file path, value: class label
 def map_datasets2labels(train_name, test_name):
