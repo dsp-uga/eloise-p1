@@ -140,7 +140,7 @@ def score_calc(word):
     if word in word2prob.keys():
         prob = float(math.log10(float(word2prob[word])))
     else:
-        P_xi_given_yk(word,0)
+        prob = P_xi_given_yk(word,0)
     return prob
   
 
