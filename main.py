@@ -44,12 +44,10 @@ def rdd_fix(rdd):
 #     rdd = rdd.map(lambda x: (x, 1))
     return rdd
 
-def bigram(rdd): # input rdd file loaded 
-    rdd = rdd.map(lambda x: x[9:]).map(lambda line: line.strip().split(" ")) \
-                    .flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))) \
-        .map(lambda x: (str(x[0]) + ' ' + str(x[1]))) # .distinct().map(lambda x: (x, 0))
+def bigram(rdd): # input rdd file loaded
+    print('g')
+    rdd = rdd.map(lambda x: x[9:]).map(lambda line: line.strip().split(" ")).flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))).map(lambda x: (str(x[0]) + ' ' + str(x[1])))
     return rdd
-
 
 # removes "words" of len greater than 2 and "?"
 def clean(x):
@@ -84,12 +82,37 @@ def generate_count_rdds(mapper, trainset=True):
     return files_rdds, class_count, word_perClass
 
 
+def generate_count_rdds_bigram(mapper, trainset=True):
+    files_rdds = {}
+    class_count = {}
+    word_perClass = {}
+    for k, v in mapper.items():
+        print(k)
+        if (v in files_rdds.keys()) and (trainset):
+            class_count[v] += 1            
+            files_rdds[v]= bigram(sc.textFile(k)).union(files_rdds[v])
+        else:
+            if trainset:
+                class_count[v] = 1
+                files_rdds[v]= bigram(sc.textFile(k))
+            else:
+                class_count[v] = 1
+                files_rdds[str(k)+' '+str(v)]= bigram(sc.textFile(k))   
+    for k, v in files_rdds.items():
+        print(k)
+        if trainset:
+            word_perClass[k] = files_rdds[k].count()
+            files_rdds[k] = files_rdds[k].map(lambda x: (x, 1)).reduceByKey(add) 
+            
+    return files_rdds, class_count, word_perClass
+
+
 # --- step 3 --- #
 # get total count info
 def total_train_info(files_rdds):
     # collectAsMap for total "word" counts
     rdd_names = list(files_rdds.keys())
-    rdd1 = list(files_rdds.keys()).pop(-1)
+    rdd1 = rdd_names.pop(-1)
     v2 = files_rdds[rdd1]
     for v in rdd_names:
         v2 = v2.union(files_rdds[v])# union keeps RDD form
@@ -101,7 +124,7 @@ def total_train_info(files_rdds):
 # --- step 4 --- #
 def P_xi_given_yk(word,count):
     # (("01" in class 1) + (1/vocab size)) / ((# words in class 1) + 1)
-    prod = (float(count)+(1/float(total_count)))/(float(current_word_perClass))
+    prob = (float(count)+(1/float(total_count)))/(float(current_word_perClass))
     return word, prob
 
 
@@ -138,11 +161,12 @@ mapper_test = map_datasets2labels('X_small_test.txt', 'y_small_test.txt')
 # --- step 2 --- #
 files_rdds_test, class_count_test, _VOID = generate_count_rdds(mapper_test, trainset=False)
 
-def score_calc(word):
+def score_calc_fast(word, count):
     if word in word2prob.keys():
-        prob = float(math.log10(float(word2prob[word])))
+        prob = float(math.log10(float(word2prob[word])))*count
     else:
-        _ret, prob = P_xi_given_yk(word,0)
+        _, prob = P_xi_given_yk(word,0)
+        prob = prob*count
     return prob
   
 
@@ -159,7 +183,7 @@ for rdd_key in files_rdds_test.keys(): # test rdd's formatted key:'path', value:
     for k, v in class_count.items():
         current_word_perClass = word_perClass[k]
         word2prob = train_prob[k]
-        scores[k] = files_rdds_test[rdd_key].map(lambda x: score_calc(x)).reduce(lambda x, y: x +y)
+        scores[k] = files_rdds_test[rdd_key].map(lambda x: (x, 1)).reduceByKey(add).map(lambda x: score_calc_fast(x[0], x[1])).reduce(lambda x, y: x +y)
         scores[k] = scores[k] + class_count[k]
     max_score = -100000000
     best_class = None
