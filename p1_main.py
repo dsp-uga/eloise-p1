@@ -5,7 +5,6 @@ from operator import add
 from __future__ import division
 import math
 import p1_utils
-from termcolor import colored
 from absl import app, flags
 from absl.flags import FLAGS
 from string import punctuation
