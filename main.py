@@ -44,8 +44,8 @@ def rdd_fix(rdd):
 #     rdd = rdd.map(lambda x: (x, 1))
     return rdd
 
-def bigram(rdd):
-    rdd = rdd.flatMap(lambda x: x.split())
+def bigram(rdd): # input rdd file loaded 
+    rdd = rdd.flatMap(lambda x: x.split()).filter(lambda x: clean(x)) # output rdd two char words formatted ('00','88',b8' ... )
     return rdd
 
 
