@@ -28,7 +28,7 @@ def val_predict(predictions):
 
 # --- step 1 --- #
 # get dict key: byte file path, value: class label
-def map_datasets2labels(sc, train_name, test_name):
+def map_datasets2labels(train_name, test_name):
     X_train_rdd=sc.textFile('gs://uga-dsp/project1/files/'+train_name).map(lambda x: 'gs://uga-dsp/project1/data/bytes/'+x+'.bytes')
     bytes = X_train_rdd.reduce(lambda x, y: x + "," + y)
     if test_name != '0':
