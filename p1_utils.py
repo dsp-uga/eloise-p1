@@ -24,9 +24,12 @@ def val_predict(predictions):
 def map_datasets2labels(sc, train_name, test_name):
     X_train_rdd=sc.textFile('gs://uga-dsp/project1/files/'+train_name).map(lambda x: 'gs://uga-dsp/project1/data/bytes/'+x+'.bytes')
     bytes = X_train_rdd.reduce(lambda x, y: x + "," + y)
-    # read class file and make a dict of key=file_path value=malware_class_num
-    y_ = sc.textFile('gs://uga-dsp/project1/files/'+test_name).reduce(lambda x, y: x + "," + y)
-    mapper = dict(zip(bytes.split(','),(y_).split(',')))
+    if test_name != '0':
+        # read class file and make a dict of key=file_path value=malware_class_num
+        y_ = sc.textFile('gs://uga-dsp/project1/files/'+test_name).reduce(lambda x, y: x + "," + y)
+        mapper = dict(zip(bytes.split(','),(y_).split(',')))
+    else:
+        mapper = dict(zip(bytes.split(','),zip(bytes.split(','))) # NO val needed
     return mapper # mapper is a dict of key:filepath, value:class label
 
 
