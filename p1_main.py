@@ -9,16 +9,16 @@ from absl import app, flags
 from absl.flags import FLAGS
 from string import punctuation
 
-flags.DEFINE_string('X_train', './X_small_train.txt', 'path to trainX byte file(s)')
-flags.DEFINE_string('y_train', './y_small_train.txt', 'path to trainY file(s)')
-
-flags.DEFINE_string('X_test', './X_small_test.txt', 'path to testX byte file(s)')
-flags.DEFINE_string('y_test', './y_small_test.txt', 'path to testY byte file(s)')
-
+flags.DEFINE_string('X_train', './X_train.txt', 'path to trainX byte file(s)')
+flags.DEFINE_string('y_train', './y_train.txt', 'path to trainY file(s)')
+flags.DEFINE_string('X_test', './X_test.txt', 'path to testX byte file(s)')
+flags.DEFINE_string('y_test', '0', 'path to testY byte file(s)') # we can still use it the same way if we replace this value with a y_test
+flags.DEFINE_string('bucket', 'gs://bucket/', 'bucket for saving text file')
 flags.DEFINE_boolean('bigram', False, 'use bigram')
 
 def main(_argv):
-
+    
+    f= open(f'{FLAGS.bucket}output.txt","w+"') # init text
     # init spark
     spark = SparkSession.builder.appName("P1_team").getOrCreate()       
     sc=spark.sparkContext
@@ -80,11 +80,14 @@ def main(_argv):
                 max_score = score
                 best_class = label
         print(best_class)
+        f.write(str(best_class)+"/n") # write to text
         predictions[rdd_key] = best_class
+        
+      f.close()
 
-    final_score = p1_utils.val_predict(predictions)
-
-    print(colored('Final Model Score: ', None), colored(str(final_score*100), 'red')
+      # not needed for auto lab
+#     final_score = p1_utils.val_predict(predictions)
+#     print(colored('Final Model Score: ', None), colored(str(final_score*100), 'red')
 
 if __name__ == '__main__':
     try:
