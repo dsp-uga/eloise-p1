@@ -131,7 +131,10 @@ mapper_test = map_datasets2labels('X_small_test.txt', 'y_small_test.txt')
 files_rdds_test, class_count_test, _VOID = generate_count_rdds(mapper_test, trainset=False)
 
 def score_calc(word):
-    prob = float(math.log10(float(word2prob[word])))
+    if word in word2prob.keys():
+        prob = float(math.log10(float(word2prob[word])))
+    else:
+        P_xi_given_yk(word,0)
     return prob
   
 
@@ -146,6 +149,7 @@ predictions = {}
 for rdd_key in files_rdds_test.keys(): # test rdd's formatted key:'path', value: words E.G. ("00", "BG" .... "01")
     scores = {} # dict that will hold key: class, val: score for that class at a single test byte file
     for k, v in class_count.items():
+        current_word_perClass = word_perClass[k]
         word2prob = train_prob[k]
         scores[k] = files_rdds_test[rdd_key].map(lambda x: score_calc(x)).reduce(lambda x, y: x +y)
         scores[k] = scores[k] + class_count[k]
