@@ -43,6 +43,12 @@ def rdd_fix(rdd):
     rdd = rdd.flatMap(lambda x: x.split()).filter(lambda x: clean(x))
 #     rdd = rdd.map(lambda x: (x, 1))
     return rdd
+
+def bigram(rdd):
+    rdd = rdd.flatMap(lambda x: x.split())
+    return rdd
+
+
 # removes "words" of len greater than 2 and "?"
 def clean(x):
     if (len(x)>2) or ("?" in x):
