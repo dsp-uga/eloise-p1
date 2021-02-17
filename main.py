@@ -161,11 +161,12 @@ mapper_test = map_datasets2labels('X_small_test.txt', 'y_small_test.txt')
 # --- step 2 --- #
 files_rdds_test, class_count_test, _VOID = generate_count_rdds(mapper_test, trainset=False)
 
-def score_calc(word):
+def score_calc_fast(word, count):
     if word in word2prob.keys():
-        prob = float(math.log10(float(word2prob[word])))
+        prob = float(math.log10(float(word2prob[word])))*count
     else:
-        _ret, prob = P_xi_given_yk(word,0)
+        _, prob = P_xi_given_yk(word,0)
+        prob = prob*count
     return prob
   
 
@@ -182,7 +183,7 @@ for rdd_key in files_rdds_test.keys(): # test rdd's formatted key:'path', value:
     for k, v in class_count.items():
         current_word_perClass = word_perClass[k]
         word2prob = train_prob[k]
-        scores[k] = files_rdds_test[rdd_key].map(lambda x: score_calc(x)).reduce(lambda x, y: x +y)
+        scores[k] = files_rdds_test[rdd_key].map(lambda x: (x, 1)).reduceByKey(add).map(lambda x: score_calc_fast(x[0], x[1])).reduce(lambda x, y: x +y)
         scores[k] = scores[k] + class_count[k]
     max_score = -100000000
     best_class = None
