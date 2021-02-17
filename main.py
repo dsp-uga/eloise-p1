@@ -47,7 +47,7 @@ def rdd_fix(rdd):
 def bigram(rdd): # input rdd file loaded 
     rdd = rdd.map(lambda x: x[9:]).map(lambda line: line.strip().split(" ")) \
                     .flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))) \
-        .map(lambda x: (str(x[0]) + ' ' + str(x[1]))).distinct().map(lambda x: (x, 0))
+        .map(lambda x: (str(x[0]) + ' ' + str(x[1]))) # .distinct().map(lambda x: (x, 0))
     return rdd
 
 
