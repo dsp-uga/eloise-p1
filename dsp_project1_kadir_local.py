@@ -200,17 +200,28 @@ x_test_list = sc.broadcast(sc.textFile(input_xtest_file).collect()).value
 ############################ WORDS #########################################################
 # predict classes (I attached labels(y) to the RDD as well for test purposes but we do not need it for later)
 def predict_classes(list_of_files):
-    doc_classification = sc.parallelize([])
+    # doc_classification = sc.parallelize([])
+    preds = []
     for doc_i in range(len(list_of_files)):
         class_scores = []
         for class_i in range (1,10):
             filename = list_of_files[doc_i]
             document1 = sc.textFile((input_data_path + filename + ".bytes")).map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()).map(lambda x: (x, cond_prob_list[class_i-1][x]))
             class_scores.append([filename, class_i ,document1.values().sum() + prior_prob_list[class_i-1]])
-        doc_classification = doc_classification.union(sc.parallelize([k for k in class_scores if k[2] == max(l[2] for l in class_scores)]))
-    return doc_classification
+        # doc_classification = doc_classification.union(sc.parallelize([k for k in class_scores if k[2] == max(l[2] for l in class_scores)]))
+        preds.append([k for k in class_scores if k[2] == max(l[2] for l in class_scores)])
+    return preds #doc_classification
 
-doc_classification = predict_classes(x_test_list)
+# doc_classification = predict_classes(x_test_list)
+predictions = predict_classes(x_test_list)
+
+print('Printing results as backup')
+# print(doc_classification.map(lambda x: x[1]).collect())
+print([p[0][1] for p in predictions])
+
+print('Converting to RDD for saving')
+doc_classification = sc.parallelize(predictions)
+doc_classification = doc_classification.map(lambda x: x[0])
 
 ## document1 = sc.textFile((input_data_path + x_test_list[1] + ".bytes")).map(lambda x: x[9:]).map(lambda line: line.strip().split(" ")) \
 ##                     .flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))) \

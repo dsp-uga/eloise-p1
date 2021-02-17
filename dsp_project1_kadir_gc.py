@@ -200,18 +200,32 @@ x_test_list = sc.broadcast(sc.textFile(input_xtest_file).collect()).value
 
 # predict classes (I attached labels(y) to the RDD as well for test purposes but we do not need it for later)
 def predict_classes(list_of_files):
-    doc_classification = sc.parallelize([])
+    # doc_classification = sc.parallelize([])
+    preds = []
     for doc_i in range(len(list_of_files)):
         class_scores = []
+        # zibik = doc_classification
         for class_i in range (1,10):
             filename = list_of_files[doc_i]
             document1 = sc.textFile((input_data_path + filename + ".bytes")).map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()).map(lambda x: (x, cond_prob_list[class_i-1][x]))
             class_scores.append([filename, class_i ,document1.values().sum() + prior_prob_list[class_i-1]])
-        doc_classification = doc_classification.union(sc.parallelize([k for k in class_scores if k[2] == max(l[2] for l in class_scores)]))
-    return doc_classification
+        # doc_classification = zibik.union(sc.parallelize([k for k in class_scores if k[2] == max(l[2] for l in class_scores)]))
+        # zibik.unpersist()
+        preds.append([k for k in class_scores if k[2] == max(l[2] for l in class_scores)])
+    return preds #doc_classification
 
-doc_classification = predict_classes(x_test_list)
+# doc_classification = predict_classes(x_test_list)
+predictions = predict_classes(x_test_list)
 print('Done')
+
+print('Printing results as backup')
+# print(doc_classification.map(lambda x: x[1]).collect())
+print([p[0][1] for p in predictions])
+
+print('Converting to RDD for saving')
+doc_classification = sc.parallelize(predictions)
+doc_classification = doc_classification.map(lambda x: x[0])
+
 ############################ BIGRAMS #########################################################
 # def predict_classes(list_of_files):
 #     doc_classification = sc.parallelize([])
@@ -235,20 +249,18 @@ print('Done')
 
 # doc_classification.take(10)
 
-################ ACCURACY CHECK###################
-##################################################
-# def accuracy_check(classifications, ytest_file):  
-#     y_test_list = sc.textFile(ytest_file).zipWithIndex().map(lambda x: (x[1], x[0]))
-#     compare_classes = classifications.zipWithIndex().map(lambda x: (x[1], x[0])).join(y_test_list)
-#     print('Accuracy of the classification: ' + str(format(100*compare_classes.map(lambda x: x[1][0][1] == int(x[1][1])).sum()/classifications.count(), '.2f')) + '%')
+############### ACCURACY CHECK###################
+#################################################
+def accuracy_check(classifications, ytest_file):  
+    y_test_list = sc.textFile(ytest_file).zipWithIndex().map(lambda x: (x[1], x[0]))
+    compare_classes = classifications.zipWithIndex().map(lambda x: (x[1], x[0])).join(y_test_list)
+    print('Accuracy of the classification: ' + str(format(100*compare_classes.map(lambda x: x[1][0][1] == int(x[1][1])).sum()/classifications.count(), '.2f')) + '%')
 
-# if(len(input_ytest_file) > 0):
-#     accuracy_check(doc_classification,input_ytest_file)
-# else:
-#     print('no y data given so accuracy is not calculated')
+if(len(input_ytest_file) > 0):
+    accuracy_check(doc_classification,input_ytest_file)
+else:
+    print('no y data given so accuracy is not calculated')
 
-print('Printing results as backup')
-print(doc_classification.map(lambda x: x[1]).collect())
 
 # # save as txt
 print('Writing to text file...')
@@ -260,7 +272,6 @@ print('output has been written to txt file')
 
 
 print('FINISHED')
-
 
 
 
