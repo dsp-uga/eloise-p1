@@ -44,12 +44,10 @@ def rdd_fix(rdd):
 #     rdd = rdd.map(lambda x: (x, 1))
     return rdd
 
-def bigram(rdd): # input rdd file loaded 
-    rdd = rdd.map(lambda x: x[9:]).map(lambda line: line.strip().split(" ")) \
-                    .flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))) \
-        .map(lambda x: (str(x[0]) + ' ' + str(x[1]))) # .distinct().map(lambda x: (x, 0))
+def bigram(rdd): # input rdd file loaded
+    print('g')
+    rdd = rdd.map(lambda x: x[9:]).map(lambda line: line.strip().split(" ")).flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))).map(lambda x: (str(x[0]) + ' ' + str(x[1])))
     return rdd
-
 
 # removes "words" of len greater than 2 and "?"
 def clean(x):
@@ -77,6 +75,31 @@ def generate_count_rdds(mapper, trainset=True):
                 files_rdds[str(k)+' '+str(v)]= rdd_fix(sc.textFile(k))
             
     for k, v in files_rdds.items():
+        if trainset:
+            word_perClass[k] = files_rdds[k].count()
+            files_rdds[k] = files_rdds[k].map(lambda x: (x, 1)).reduceByKey(add) 
+            
+    return files_rdds, class_count, word_perClass
+
+
+def generate_count_rdds_bigram(mapper, trainset=True):
+    files_rdds = {}
+    class_count = {}
+    word_perClass = {}
+    for k, v in mapper.items():
+        print(k)
+        if (v in files_rdds.keys()) and (trainset):
+            class_count[v] += 1            
+            files_rdds[v]= bigram(sc.textFile(k)).union(files_rdds[v])
+        else:
+            if trainset:
+                class_count[v] = 1
+                files_rdds[v]= bigram(sc.textFile(k))
+            else:
+                class_count[v] = 1
+                files_rdds[str(k)+' '+str(v)]= bigram(sc.textFile(k))   
+    for k, v in files_rdds.items():
+        print(k)
         if trainset:
             word_perClass[k] = files_rdds[k].count()
             files_rdds[k] = files_rdds[k].map(lambda x: (x, 1)).reduceByKey(add) 
