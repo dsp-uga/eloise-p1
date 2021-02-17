@@ -134,19 +134,21 @@ def score_calc(word):
     prob = float(math.log10(float(word2prob[word])))
     return prob
   
-predictions = {}
+
 
 total_labels = 0 
 for label, numclass in class_count.items(): #class_count dict key: class val: number of that class in training set
     total_labels += numclass # total files in training set
+for k in class_count.keys(): #class_count dict key: class val: number of that class in training set
+    class_count[k] = math.log10(float(class_count[k]/total_labels)) # total files in training set
 
+predictions = {}
 for rdd_key in files_rdds_test.keys(): # test rdd's formatted key:'path', value: words E.G. ("00", "BG" .... "01")
     scores = {} # dict that will hold key: class, val: score for that class at a single test byte file
     for k, v in class_count.items():
         word2prob = train_prob[k]
         scores[k] = files_rdds_test[rdd_key].map(lambda x: score_calc(x)).reduce(lambda x, y: x +y)
-        p_yk = math.log10(float(v/total_labels))
-        scores[k] = scores[k] + p_yk
+        scores[k] = scores[k] + class_count[k]
     max_score = -100000000
     best_class = None
     print(scores)
