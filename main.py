@@ -100,8 +100,8 @@ def total_train_info(files_rdds):
 # --- step 4 --- #
 def P_xi_given_yk(word,count):
     # (("01" in class 1) + (1/vocab size)) / ((# words in class 1) + 1)
-    count = (float(count)+(1/float(total_count)))/(float(current_word_perClass))
-    return word, count
+    prod = (float(count)+(1/float(total_count)))/(float(current_word_perClass))
+    return word, prob
 
 
 # --- step 1 --- #
