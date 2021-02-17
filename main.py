@@ -45,8 +45,9 @@ def rdd_fix(rdd):
     return rdd
 
 def bigram(rdd): # input rdd file loaded 
-    rdd = rdd.flatMap(lambda x: x.split()).filter(lambda x: clean(x)) # output rdd two char words formatted ('00','88',b8' ... )
-    return rdd
+    rdd = rdd.map(lambda x: x[9:]).map(lambda line: line.strip().split(" ")) \
+                    .flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))) \
+        .map(lambda x: (str(x[0]) + ' ' + str(x[1]))).distinct().map(lambda x: (x, 0))
 
 
 # removes "words" of len greater than 2 and "?"
