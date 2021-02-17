@@ -14,7 +14,7 @@ spark = SparkSession.builder.appName("P1_team").getOrCreate()
 sc=spark.sparkContext
 
 
-
+# used for final calculation of scores
 def val_predict(predictions):
     correct_predict_count, all_predict_count = 0, 0
     for pred_y, y_true in predictions.items():
@@ -34,7 +34,7 @@ def map_datasets2labels(train_name, test_name):
     # read class file and make a dict of key=file_path value=malware_class_num
     y_ = sc.textFile('gs://uga-dsp/project1/files/'+test_name).reduce(lambda x, y: x + "," + y)
     mapper = dict(zip(bytes.split(','),(y_).split(',')))
-    return mapper
+    return mapper # mapper is a dict of key:filepath, value:class label
 
 
 # --- step 2 --- #
@@ -50,6 +50,8 @@ def clean(x):
     else:
         return x
 
+# generates two diffent set, if you run trainset=true you get a dict of RDD's formatted key:'class', value: list of word count's for that class
+# if trainset=false key:'path', value: words E.G. ("00", "BG" .... "01")
 def generate_count_rdds(mapper, trainset=True):
     files_rdds = {}
     class_count = {}
@@ -84,12 +86,13 @@ def total_train_info(files_rdds):
     for v in rdd_names:
         v2 = v2.union(files_rdds[v])# union keeps RDD form
     total_count_map=v2.reduceByKey(add).collectAsMap()
-    return len(total_count_map), total_count_map
+    return len(total_count_map), total_count_map # len(total_count_map) = count of all unique words = 256, total_count_map = dict 
 
 
 
 # --- step 4 --- #
 def P_xi_given_yk(word,count):
+    # (("01" in class 1) + (1/vocab size)) / ((# words in class 1) + 1)
     count = (float(count)+(1/float(total_count)))/(float(current_word_perClass))
     return word, count
 
@@ -98,14 +101,17 @@ def P_xi_given_yk(word,count):
 mapper = map_datasets2labels('X_small_train.txt', 'y_small_train.txt')  
 # --- step 2 --- #
 files_rdds, class_count, word_perClass = generate_count_rdds(mapper)
+# files_rdds = dict of RDD's formatted key:'class', value: list of word count's for that class
+# word_perClass = dict key:class, val:total word count
+# class_count = dict key:class val: number of files of that class
 # --- step 3 --- #
 total_count, total_count_map = total_train_info(files_rdds)
 # --- step 4 --- #
 train_prob = {}                           
 for k in files_rdds.keys():
-    current_word_perClass = word_perClass[k]
+    current_word_perClass = word_perClass[k] # total wordcount for class[k]
     print(current_word_perClass)
-    probs = {}
+    probs = {} # dict formatted key: class val: (dict key:word val: P(xi|yk))
     for word, count in files_rdds[k].collectAsMap().items():
         word, prob = P_xi_given_yk(word,count)
         probs[word] = prob
@@ -129,15 +135,15 @@ def score_calc(word):
     return prob
   
 predictions = {}
-for rdd_key in files_rdds_test.keys():
-    print(rdd_key)
-    scores = {}
-    total_labels = 0
-    for label, numclass in class_count.items():
-        total_labels += numclass
+
+total_labels = 0 
+for label, numclass in class_count.items(): #class_count dict key: class val: number of that class in training set
+    total_labels += numclass # total files in training set
+
+for rdd_key in files_rdds_test.keys(): # test rdd's formatted key:'path', value: words E.G. ("00", "BG" .... "01")
+    scores = {} # dict that will hold key: class, val: score for that class at a single test byte file
     for k, v in class_count.items():
         word2prob = train_prob[k]
-        # issues HERE cannont .reduceByKey(multiply) we need another way to do that
         scores[k] = files_rdds_test[rdd_key].map(lambda x: score_calc(x)).reduce(lambda x, y: x +y)
         p_yk = math.log10(float(v/total_labels))
         scores[k] = scores[k] + p_yk
