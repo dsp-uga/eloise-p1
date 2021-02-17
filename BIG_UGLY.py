@@ -36,7 +36,7 @@ def map_datasets2labels(sc, train_name, test_name):
         y_ = sc.textFile('gs://uga-dsp/project1/files/'+test_name).reduce(lambda x, y: x + "," + y)
         mapper = dict(zip(bytes.split(','),(y_).split(',')))
     else:
-        mapper = dict(zip(bytes.split(','),zip(bytes.split(','))) # NO val needed
+        mapper = dict(zip(bytes.split(','),zip(bytes.split(',')))) # NO val needed
     return mapper # mapper is a dict of key:filepath, value:class label
 
 
