@@ -89,7 +89,7 @@ def generate_count_rdds(mapper, trainset=True):
 def total_train_info(files_rdds):
     # collectAsMap for total "word" counts
     rdd_names = list(files_rdds.keys())
-    rdd1 = list(files_rdds.keys()).pop(-1)
+    rdd1 = rdd_names.pop(-1)
     v2 = files_rdds[rdd1]
     for v in rdd_names:
         v2 = v2.union(files_rdds[v])# union keeps RDD form
