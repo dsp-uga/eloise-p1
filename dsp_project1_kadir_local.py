@@ -101,93 +101,94 @@ all_train = sc.textFile(get_file_addresses(sc.textFile(input_xtrain_file).collec
 # all test documents RDD
 all_test = sc.textFile(get_file_addresses(sc.textFile(input_xtest_file).collect()))
 
+############################ WORDS #########################################################
 # comprehensive vocabulary to avoid zero probability issue by introducing words that does not appear in certain classes (from training and test data)
-# def vocabulary_of_zeros(comprehensive_training_data, comprehensive_test_data):
-#     voc_train = comprehensive_training_data.map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()).distinct().map(lambda x: (x, 0))
-#     voc_test = comprehensive_test_data.map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()).distinct().map(lambda x: (x, 0))
-#     return voc_train.union(voc_test)
+def vocabulary_of_zeros(comprehensive_training_data, comprehensive_test_data):
+    voc_train = comprehensive_training_data.map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()).distinct().map(lambda x: (x, 0))
+    voc_test = comprehensive_test_data.map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()).distinct().map(lambda x: (x, 0))
+    return voc_train.union(voc_test)
     
-# # calculate term frequencies including zeros for words that appear in documents but not in every class
-# def term_freq(document_set, vocabulary):
-#     processed = document_set.map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()) \
-#         .map(lambda x: (x, 1)).union(vocabulary).reduceByKey(lambda x, y: x + y)
-#     return processed
+# calculate term frequencies including zeros for words that appear in documents but not in every class
+def term_freq(document_set, vocabulary):
+    processed = document_set.map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()) \
+        .map(lambda x: (x, 1)).union(vocabulary).reduceByKey(lambda x, y: x + y)
+    return processed
 
-# print('Gathering vocabularies and no of unique words...')
-# comp_vocabulary = vocabulary_of_zeros(all_train, all_test)
+print('Gathering vocabularies and no of unique words...')
+comp_vocabulary = vocabulary_of_zeros(all_train, all_test)
 
-# no_unique_words = comp_vocabulary.count()
-# print('Done')
+no_unique_words = comp_vocabulary.count()
+print('Done')
 
-# # calculate cond probabilities P(x_i, y_k) including laplace smoothing and log transformation
-# # ALTERNATING CONDITIONAL PROBABILITY CALCULATION: ADDED NO OF UNIQUE WORDS(WHOLE VOCABULARY) TO DENOMINATOR
-# # HOWEVER, NO OF WORD X IN ALL DOCUMENTS STAYS THE SAME (PER PROJECT MANUAL)
-# # MIGHT NEED TO CHANGE THAT TO NO OF ALL WORDS IN DOC Y AS IN GENERAL APPLICATIONS
-
-# # def cond_prob(class_filtered, unfiltered_train):
-# #     probs = term_freq(class_filtered, comp_vocabulary).join(term_freq(unfiltered_train, comp_vocabulary)).map(lambda x: (x[0], math.log10( (x[1][0] + 1)/(x[1][1] + no_unique_words) )))
-# #     return probs
+# calculate cond probabilities P(x_i, y_k) including laplace smoothing and log transformation
+# ALTERNATING CONDITIONAL PROBABILITY CALCULATION: ADDED NO OF UNIQUE WORDS(WHOLE VOCABULARY) TO DENOMINATOR
+# HOWEVER, NO OF WORD X IN ALL DOCUMENTS STAYS THE SAME (PER PROJECT MANUAL)
+# MIGHT NEED TO CHANGE THAT TO NO OF ALL WORDS IN DOC Y AS IN GENERAL APPLICATIONS
 
 # def cond_prob(class_filtered, unfiltered_train):
-#     tf_class = term_freq(class_filtered, comp_vocabulary)
-#     total_words_in_class = tf_class.values().sum()
-#     # tf_all = term_freq(unfiltered_train, comp_vocabulary)
-#     # probs = tf_class.join(tf_all).map(lambda x: (x[0], math.log10( (x[1][0] + 1)/(x[1][1] + no_unique_words) )))
-#     probs = tf_class.map(lambda x: (x[0], math.log10( (x[1] + 1)/(total_words_in_class + no_unique_words) )))
+#     probs = term_freq(class_filtered, comp_vocabulary).join(term_freq(unfiltered_train, comp_vocabulary)).map(lambda x: (x[0], math.log10( (x[1][0] + 1)/(x[1][1] + no_unique_words) )))
 #     return probs
 
-# print('Putting together class-dependent conditional probs for each word...')
-# # loop to get probability information for all classes and pass to prediction
-# # get prior and conditional
-# prior_prob_list = []
-# cond_prob_list = []
-# for i in range(1,10):
-#     prior_prob_list.append(prior_prob(doc_labels, i))
-#     cond_prob_list.append(sc.broadcast(cond_prob(sc.textFile(get_file_addresses( filter_file_names(str(i)) )),all_train).collectAsMap()).value)
-
-########### n-grams ####################
-def bigrams_of_zeros(comprehensive_training_data, comprehensive_test_data):
-    bigrams_train = comprehensive_training_data.map(lambda x: x[9:]).map(lambda line: line.strip().split(" ")) \
-                    .flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))) \
-                        .map(lambda x: (str(x[0]) + ' ' + str(x[1]))).distinct().map(lambda x: (x, 0))
-    bigrams_test = comprehensive_test_data.map(lambda x: x[9:]).map(lambda line: line.strip().split(" ")) \
-                    .flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))) \
-                        .map(lambda x: (str(x[0]) + ' ' + str(x[1]))).distinct().map(lambda x: (x, 0))
-    return bigrams_train.union(bigrams_test)
-
-def n_gram_term_freq(document_set, ngram_vocabulary):
-    # bla = sc.textFile(get_file_addresses( filter_file_names(str(1)) )).map(lambda x: x[9:])
-    bigrams = document_set.map(lambda line: line.strip().split(" ")) \
-                    .flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))) \
-                        .map(lambda x: (str(x[0]) + ' ' + str(x[1]))).map(lambda x: (x, 1)) \
-                            .union(ngram_vocabulary).reduceByKey(lambda x,y: x + y)
-    return bigrams
-
-comp_bigrams = bigrams_of_zeros(all_train, all_test)
-
-no_unique_bigrams = comp_bigrams.count()
-    
-# bigram1 = n_gram_term_freq(sc.textFile(get_file_addresses( filter_file_names(str(1)) )).map(lambda x: x[9:]), comp_bigrams)
-# bigram1.saveAsTextFile('/home/kadir/Documents/Spyder/DSP_Spring21/DSP_Spring21_github/eloise-p1/bigram')
-
-def ngram_cond_prob(class_filtered, unfiltered_train):
-    bigram_tf_class = n_gram_term_freq(class_filtered, comp_bigrams)
-    total_bigrams_in_class = bigram_tf_class.values().sum()
+def cond_prob(class_filtered, unfiltered_train):
+    tf_class = term_freq(class_filtered, comp_vocabulary)
+    total_words_in_class = tf_class.values().sum()
     # tf_all = term_freq(unfiltered_train, comp_vocabulary)
     # probs = tf_class.join(tf_all).map(lambda x: (x[0], math.log10( (x[1][0] + 1)/(x[1][1] + no_unique_words) )))
-    probs = bigram_tf_class.map(lambda x: (x[0], math.log10( (x[1] + 1)/(total_bigrams_in_class + no_unique_bigrams) )))
+    probs = tf_class.map(lambda x: (x[0], math.log10( (x[1] + 1)/(total_words_in_class + no_unique_words) )))
     return probs
 
-# bigramcondprob1 = ngram_cond_prob(sc.textFile(get_file_addresses( filter_file_names(str(1)) )).map(lambda x: x[9:]),all_train)
-# bigramcondprob1.take(10)
-# bigramcondprob1.collectAsMap()
-# bigram1broad = sc.broadcast(bigramcondprob1.collectAsMap()).value
-
+print('Putting together class-dependent conditional probs for each word...')
+# loop to get probability information for all classes and pass to prediction
+# get prior and conditional
 prior_prob_list = []
 cond_prob_list = []
 for i in range(1,10):
     prior_prob_list.append(prior_prob(doc_labels, i))
-    cond_prob_list.append(sc.broadcast(ngram_cond_prob(sc.textFile(get_file_addresses( filter_file_names(str(i)) )).map(lambda x: x[9:]),all_train).collectAsMap()).value)
+    cond_prob_list.append(sc.broadcast(cond_prob(sc.textFile(get_file_addresses( filter_file_names(str(i)) )),all_train).collectAsMap()).value)
+
+############################ BIGRAMS #########################################################
+# def bigrams_of_zeros(comprehensive_training_data, comprehensive_test_data):
+#     bigrams_train = comprehensive_training_data.map(lambda x: x[9:]).map(lambda line: line.strip().split(" ")) \
+#                     .flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))) \
+#                         .map(lambda x: (str(x[0]) + ' ' + str(x[1]))).distinct().map(lambda x: (x, 0))
+#     bigrams_test = comprehensive_test_data.map(lambda x: x[9:]).map(lambda line: line.strip().split(" ")) \
+#                     .flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))) \
+#                         .map(lambda x: (str(x[0]) + ' ' + str(x[1]))).distinct().map(lambda x: (x, 0))
+#     return bigrams_train.union(bigrams_test)
+
+# def n_gram_term_freq(document_set, ngram_vocabulary):
+#     # bla = sc.textFile(get_file_addresses( filter_file_names(str(1)) )).map(lambda x: x[9:])
+#     bigrams = document_set.map(lambda line: line.strip().split(" ")) \
+#                     .flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))) \
+#                         .map(lambda x: (str(x[0]) + ' ' + str(x[1]))).map(lambda x: (x, 1)) \
+#                             .union(ngram_vocabulary).reduceByKey(lambda x,y: x + y)
+#     return bigrams
+
+# comp_bigrams = bigrams_of_zeros(all_train, all_test)
+
+# no_unique_bigrams = comp_bigrams.count()
+    
+# # bigram1 = n_gram_term_freq(sc.textFile(get_file_addresses( filter_file_names(str(1)) )).map(lambda x: x[9:]), comp_bigrams)
+# # bigram1.saveAsTextFile('/home/kadir/Documents/Spyder/DSP_Spring21/DSP_Spring21_github/eloise-p1/bigram')
+
+# def ngram_cond_prob(class_filtered, unfiltered_train):
+#     bigram_tf_class = n_gram_term_freq(class_filtered, comp_bigrams)
+#     total_bigrams_in_class = bigram_tf_class.values().sum()
+#     # tf_all = term_freq(unfiltered_train, comp_vocabulary)
+#     # probs = tf_class.join(tf_all).map(lambda x: (x[0], math.log10( (x[1][0] + 1)/(x[1][1] + no_unique_words) )))
+#     probs = bigram_tf_class.map(lambda x: (x[0], math.log10( (x[1] + 1)/(total_bigrams_in_class + no_unique_bigrams) )))
+#     return probs
+
+# # bigramcondprob1 = ngram_cond_prob(sc.textFile(get_file_addresses( filter_file_names(str(1)) )).map(lambda x: x[9:]),all_train)
+# # bigramcondprob1.take(10)
+# # bigramcondprob1.collectAsMap()
+# # bigram1broad = sc.broadcast(bigramcondprob1.collectAsMap()).value
+
+# prior_prob_list = []
+# cond_prob_list = []
+# for i in range(1,10):
+#     prior_prob_list.append(prior_prob(doc_labels, i))
+#     cond_prob_list.append(sc.broadcast(ngram_cond_prob(sc.textFile(get_file_addresses( filter_file_names(str(i)) )).map(lambda x: x[9:]),all_train).collectAsMap()).value)
 
 ################ PREDICTION ######################
 ##################################################
@@ -196,40 +197,41 @@ for i in range(1,10):
 x_test_list = sc.broadcast(sc.textFile(input_xtest_file).collect()).value
 # get labels of each document for comparison (not needed for later)
 
+############################ WORDS #########################################################
 # predict classes (I attached labels(y) to the RDD as well for test purposes but we do not need it for later)
-# def predict_classes(list_of_files):
-#     doc_classification = sc.parallelize([])
-#     for doc_i in range(len(list_of_files)):
-#         class_scores = []
-#         for class_i in range (1,10):
-#             filename = list_of_files[doc_i]
-#             document1 = sc.textFile((input_data_path + filename + ".bytes")).map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()).map(lambda x: (x, cond_prob_list[class_i-1][x]))
-#             class_scores.append([filename, class_i ,document1.values().sum() + prior_prob_list[class_i-1]])
-#         doc_classification = doc_classification.union(sc.parallelize([k for k in class_scores if k[2] == max(l[2] for l in class_scores)]))
-#     return doc_classification
-
-# doc_classification = predict_classes(x_test_list)
-
-# document1 = sc.textFile((input_data_path + x_test_list[1] + ".bytes")).map(lambda x: x[9:]).map(lambda line: line.strip().split(" ")) \
-#                     .flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))) \
-#                         .map(lambda x: (str(x[0]) + ' ' + str(x[1])))
-# document1.take(10) 
-
-############## for bigrams
 def predict_classes(list_of_files):
     doc_classification = sc.parallelize([])
     for doc_i in range(len(list_of_files)):
         class_scores = []
         for class_i in range (1,10):
             filename = list_of_files[doc_i]
-            document1 = sc.textFile((input_data_path + filename + ".bytes")).map(lambda x: x[9:]).map(lambda line: line.strip().split(" ")) \
-                    .flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))) \
-                        .map(lambda x: (str(x[0]) + ' ' + str(x[1]))).map(lambda x: (x, cond_prob_list[class_i-1][x]))
+            document1 = sc.textFile((input_data_path + filename + ".bytes")).map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()).map(lambda x: (x, cond_prob_list[class_i-1][x]))
             class_scores.append([filename, class_i ,document1.values().sum() + prior_prob_list[class_i-1]])
         doc_classification = doc_classification.union(sc.parallelize([k for k in class_scores if k[2] == max(l[2] for l in class_scores)]))
     return doc_classification
 
 doc_classification = predict_classes(x_test_list)
+
+## document1 = sc.textFile((input_data_path + x_test_list[1] + ".bytes")).map(lambda x: x[9:]).map(lambda line: line.strip().split(" ")) \
+##                     .flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))) \
+##                         .map(lambda x: (str(x[0]) + ' ' + str(x[1])))
+## document1.take(10) 
+
+############################ BIGRAMS #########################################################
+# def predict_classes(list_of_files):
+#     doc_classification = sc.parallelize([])
+#     for doc_i in range(len(list_of_files)):
+#         class_scores = []
+#         for class_i in range (1,10):
+#             filename = list_of_files[doc_i]
+#             document1 = sc.textFile((input_data_path + filename + ".bytes")).map(lambda x: x[9:]).map(lambda line: line.strip().split(" ")) \
+#                     .flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))) \
+#                         .map(lambda x: (str(x[0]) + ' ' + str(x[1]))).map(lambda x: (x, cond_prob_list[class_i-1][x]))
+#             class_scores.append([filename, class_i ,document1.values().sum() + prior_prob_list[class_i-1]])
+#         doc_classification = doc_classification.union(sc.parallelize([k for k in class_scores if k[2] == max(l[2] for l in class_scores)]))
+#     return doc_classification
+
+# doc_classification = predict_classes(x_test_list)
 ###############
 
 # yler = sc.textFile('/home/kadir/Documents/Spyder/DSP_Spring21/project1/y_small_test.txt').zipWithIndex().map(lambda x: (x[1], x[0]))

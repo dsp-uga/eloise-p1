@@ -45,13 +45,13 @@ if len(sys.argv) == 7:
 else:
     input_ytest_file = ''
     
-
+print('Setting up spark context...')
 # Initialize Spark context
 # conf = SparkConf().setMaster("local[*]")
 # sc = SparkContext(conf = conf)
 conf = SparkConf().setAppName('ilkproje')
 sc = SparkContext(conf = conf)
-print('Setting up spark context...')
+print('Done')
 
 # Gather document names (x) and related classes (y) (LOCAL NOW FOR PRACTICE) 
 # May need to broadcast this
@@ -62,8 +62,9 @@ def join_x_and_y(x_train_file, y_train_file):
     return x_y_train
 
 # label-doc(y-x) pairs
-doc_labels = join_x_and_y(input_xtrain_file, input_ytrain_file )#.filter(lambda x: x[0] == str(1)).collect()
 print('Collecting training x and y data together...')
+doc_labels = join_x_and_y(input_xtrain_file, input_ytrain_file )#.filter(lambda x: x[0] == str(1)).collect()
+print('Done')
 
 # filter x based on y (might be better with RDDs)
 # small_train_dir = "/home/kadir/Documents/Spyder/DSP_Spring21/project1/small_train/"
@@ -100,7 +101,7 @@ print('Forming comprehensive RDDs for training and testing...')
 all_train = sc.textFile(get_file_addresses(sc.textFile(input_xtrain_file).collect()))
 # all test documents RDD
 all_test = sc.textFile(get_file_addresses(sc.textFile(input_xtest_file).collect()))
-
+print('Done')
 # comprehensive vocabulary to avoid zero probability issue by introducing words that does not appear in certain classes (from training and test data)
 def vocabulary_of_zeros(comprehensive_training_data, comprehensive_test_data):
     voc_train = comprehensive_training_data.map(lambda x: x[9:]).flatMap(lambda x: x.strip().split()).distinct().map(lambda x: (x, 0))
@@ -144,13 +145,13 @@ cond_prob_list = []
 for i in range(1,10):
     prior_prob_list.append(prior_prob(doc_labels, i))
     cond_prob_list.append(sc.broadcast(cond_prob(sc.textFile(get_file_addresses( filter_file_names(str(i)) )),all_train).collectAsMap()).value)
-
-########### n-grams ####################
+print('Done')
+############################ BIGRAMS #########################################################
 # def bigrams_of_zeros(comprehensive_training_data, comprehensive_test_data):
-#     bigrams_train = comprehensive_training_data.map(lambda line: line.strip().split(" ")) \
+#     bigrams_train = comprehensive_training_data.map(lambda x: x[9:]).map(lambda line: line.strip().split(" ")) \
 #                     .flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))) \
 #                         .map(lambda x: (str(x[0]) + ' ' + str(x[1]))).distinct().map(lambda x: (x, 0))
-#     bigrams_test = comprehensive_test_data.map(lambda line: line.strip().split(" ")) \
+#     bigrams_test = comprehensive_test_data.map(lambda x: x[9:]).map(lambda line: line.strip().split(" ")) \
 #                     .flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))) \
 #                         .map(lambda x: (str(x[0]) + ' ' + str(x[1]))).distinct().map(lambda x: (x, 0))
 #     return bigrams_train.union(bigrams_test)
@@ -167,6 +168,9 @@ for i in range(1,10):
 
 # no_unique_bigrams = comp_bigrams.count()
     
+# # bigram1 = n_gram_term_freq(sc.textFile(get_file_addresses( filter_file_names(str(1)) )).map(lambda x: x[9:]), comp_bigrams)
+# # bigram1.saveAsTextFile('/home/kadir/Documents/Spyder/DSP_Spring21/DSP_Spring21_github/eloise-p1/bigram')
+
 # def ngram_cond_prob(class_filtered, unfiltered_train):
 #     bigram_tf_class = n_gram_term_freq(class_filtered, comp_bigrams)
 #     total_bigrams_in_class = bigram_tf_class.values().sum()
@@ -175,16 +179,21 @@ for i in range(1,10):
 #     probs = bigram_tf_class.map(lambda x: (x[0], math.log10( (x[1] + 1)/(total_bigrams_in_class + no_unique_bigrams) )))
 #     return probs
 
+# # bigramcondprob1 = ngram_cond_prob(sc.textFile(get_file_addresses( filter_file_names(str(1)) )).map(lambda x: x[9:]),all_train)
+# # bigramcondprob1.take(10)
+# # bigramcondprob1.collectAsMap()
+# # bigram1broad = sc.broadcast(bigramcondprob1.collectAsMap()).value
+
 # prior_prob_list = []
 # cond_prob_list = []
 # for i in range(1,10):
 #     prior_prob_list.append(prior_prob(doc_labels, i))
-#     cond_prob_list.append(sc.broadcast(ngram_cond_prob(sc.textFile(get_file_addresses( filter_file_names(str(i)) )),all_train).collectAsMap()).value)
+#     cond_prob_list.append(sc.broadcast(ngram_cond_prob(sc.textFile(get_file_addresses( filter_file_names(str(i)) )).map(lambda x: x[9:]),all_train).collectAsMap()).value)
 
 
 ################ PREDICTION ######################
 ##################################################
-
+print('Predicting classes...')
 # get documents to be classified
 x_test_list = sc.broadcast(sc.textFile(input_xtest_file).collect()).value
 # get labels of each document for comparison (not needed for later)
@@ -202,15 +211,15 @@ def predict_classes(list_of_files):
     return doc_classification
 
 doc_classification = predict_classes(x_test_list)
-
-############### for bigrams
+print('Done')
+############################ BIGRAMS #########################################################
 # def predict_classes(list_of_files):
 #     doc_classification = sc.parallelize([])
 #     for doc_i in range(len(list_of_files)):
 #         class_scores = []
 #         for class_i in range (1,10):
 #             filename = list_of_files[doc_i]
-#             document1 = sc.textFile((input_data_path + filename + ".bytes")).map(lambda line: line.strip().split(" ")) \
+#             document1 = sc.textFile((input_data_path + filename + ".bytes")).map(lambda x: x[9:]).map(lambda line: line.strip().split(" ")) \
 #                     .flatMap(lambda xs: (tuple(x) for x in zip(xs, xs[1:]))) \
 #                         .map(lambda x: (str(x[0]) + ' ' + str(x[1]))).map(lambda x: (x, cond_prob_list[class_i-1][x]))
 #             class_scores.append([filename, class_i ,document1.values().sum() + prior_prob_list[class_i-1]])
@@ -228,25 +237,29 @@ doc_classification = predict_classes(x_test_list)
 
 ################ ACCURACY CHECK###################
 ##################################################
-def accuracy_check(classifications, ytest_file):  
-    y_test_list = sc.textFile(ytest_file).zipWithIndex().map(lambda x: (x[1], x[0]))
-    compare_classes = classifications.zipWithIndex().map(lambda x: (x[1], x[0])).join(y_test_list)
-    print('Accuracy of the classification: ' + str(format(100*compare_classes.map(lambda x: x[1][0][1] == int(x[1][1])).sum()/classifications.count(), '.2f')) + '%')
+# def accuracy_check(classifications, ytest_file):  
+#     y_test_list = sc.textFile(ytest_file).zipWithIndex().map(lambda x: (x[1], x[0]))
+#     compare_classes = classifications.zipWithIndex().map(lambda x: (x[1], x[0])).join(y_test_list)
+#     print('Accuracy of the classification: ' + str(format(100*compare_classes.map(lambda x: x[1][0][1] == int(x[1][1])).sum()/classifications.count(), '.2f')) + '%')
 
-if(len(input_ytest_file) > 0):
-    accuracy_check(doc_classification,input_ytest_file)
-else:
-    print('no y data given so accuracy is not calculated')
+# if(len(input_ytest_file) > 0):
+#     accuracy_check(doc_classification,input_ytest_file)
+# else:
+#     print('no y data given so accuracy is not calculated')
 
+print('Printing results as backup')
+print(doc_classification.map(lambda x: x[1]).collect())
 
 # # save as txt
-# with open(input_output_dir + 'classification.txt', 'w') as txt_file:
+print('Writing to text file...')
+# with open('/home/kadir/Documents/Spyder/DSP_Spring21/DSP_Spring21_github/eloise-p1/classification.txt', 'w') as txt_file:
 #   txt_file.writelines("%s\n" % p for p in doc_classification.map(lambda x: x[1]).collect())
-# print('output has been written to txt file')
 
-doc_classification.map(lambda x: x[1]).saveAsTextFile(input_output_dir + 'output_large/')
+doc_classification.map(lambda x: x[1]).saveAsTextFile(input_output_dir + 'outputs_large/')
+print('output has been written to txt file')
 
 
+print('FINISHED')
 
 
 
