@@ -32,22 +32,18 @@ Examples of how to solve run a simple Naive Bayes model from the terminal are li
 
 ```
 python p1_main.py --X_train ./X_small_train.txt --y_train ./y_small_train.txt --X_test ./X_small_test.txt --y_test ./y_small_test.txt
-
 ```
 
 To run this model on the larger set run the command line below: 
 
 ```
 python p1_main.py
-
 ```
 
 This code can also produce predictions from bigrams of "words" from the bytes files:
 
-
 ```
 python p1_main.py --brigram True
-
 ```
 
 
