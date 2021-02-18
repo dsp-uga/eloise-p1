@@ -1,13 +1,5 @@
 # eloise-p1
 
-Kadir - Initial small test results were around 63% with main naive bayes with no improvements
-dsp_project1_kadir_gc.py - takes 5 arguments:
-1 - data dir
-2 - x train file
-3 - y train file
-4 - x test file
-5 - y test file (for accuracy, optional)
-
 Introduction:
 -----------------
 The goal of this project was to develop at Malware Classification Algorithm.
@@ -50,6 +42,16 @@ python p1_main.py --brigram True
 
 
 The files are dynamic enough to allow you to specify the following information:
+
+NaiveBayes_from_Scratch2.py - takes 6 arguments:
+1 - data dir
+2 - x train file
+3 - y train file
+4 - x test file
+5 - output dir
+6 - y test file (for accuracy, optional)
+
+Note: Code also includes commented out bigram implementation which works however, due to time limitations, we were not able to produce an output.
 
 
 Authors
