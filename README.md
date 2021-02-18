@@ -42,6 +42,14 @@ python p1_main.py
 
 ```
 
+This code can also produce predictions from bigrams of "words" from the bytes files:
+
+
+```
+python p1_main.py --brigram True
+
+```
+
 
 
 
@@ -51,4 +59,8 @@ The files are dynamic enough to allow you to specify the following information:
 Authors
 --------------
 
-  [Clint Morris](https://github.com/clint-kristopher-morris)
+   [kadirbice](https://github.com/kbice)
+   
+   [Clint Morris](https://github.com/clint-kristopher-morris)
+   
+   [Gianni](https://github.com/Gianni2437)
