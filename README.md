@@ -53,6 +53,15 @@ NaiveBayes_from_Scratch2.py - takes 6 arguments:
 
 Note: Code also includes commented out bigram implementation which works however, due to time limitations, we were not able to produce an output.
 
+NaiveBayes_with_asm.py experiments with associating asm file features with the hexadecimals in the 'bag of words'. The first included methodologiy scrapes 'Get' and 'Set' method names used within the assembly script in order to associate specific actions like 'GetKeyboardInput' and 'SetCalendarInfo' with malware classes. The second method includes assembly memory actions (i.e. [esx+14H]) within the script with malware classes for ease of classification. 
+
+This portion of the repository did not lead to improvement in accuracy and is under active development.
+
+Issues
+--------------
+Builtin PySpark MLlib classification models such as Naive Bayes and Random Forest offered no significant improvement in accuracy over the "from scratch" Naive Bayes implementations.
+
+Use of asm files leading to overprediction of specific malware classes such a 3 and 7.
 
 Authors
 --------------
